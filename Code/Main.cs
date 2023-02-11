@@ -24,12 +24,23 @@ namespace Addon_Killer
 			// Initalize your mod content here
 			Harmony.CreateAndPatchAll(typeof(Addon_Killer_Main), "CW_Addon_Killer");
 			add_killer_cultisys();
-			//add_kill_combo_status();
+			add_kill_combo_status();
 		}
 
         private void add_kill_combo_status()
         {
-            //throw new NotImplementedException();
+            CW_BaseStats bonus_stats = new CW_BaseStats();
+            CW_Asset_StatusEffect status_effect = new CW_Asset_StatusEffect(
+                id: "status_kill_combo",
+                anim_id: null,
+                bonus_stats: bonus_stats,
+                effect_val: 5,
+                effect_time: 5f,
+                action_on_get: copy_bonus_stats_on_get,
+                action_on_update: kill_combo_update_action,
+                action_on_end: null
+                );
+            CW_Library_Manager.instance.status_effects.add(status_effect);
         }
 
         [HarmonyPostfix]
@@ -48,18 +59,16 @@ namespace Addon_Killer
 			actor.regen_health(((CW_Actor)pDeadUnit).cw_cur_stats.health_regen);
 			actor.regen_wakan(((CW_Actor)pDeadUnit).cw_cur_stats.wakan_regen);
 			CW_BaseStats cw_stats = actor.get_fixed_base_stats();
-			cw_stats.base_stats.mod_health += 1;
-			cw_stats.base_stats.damage += 1;
-			cw_stats.base_stats.mod_damage += 1;
-			cw_stats.base_stats.mod_armor += 0.1f;
-			cw_stats.mod_spell_armor += 0.1f;
-			cw_stats.base_stats.mod_attackSpeed += 0.1f;
-			cw_stats.base_stats.mod_speed += 0.1f;
-			cw_stats.mod_wakan += 1;
-			cw_stats.mod_wakan_regen += 1;
-			cw_stats.mod_shield_regen += 1;
+			cw_stats.base_stats.mod_health += 0.1f;
+			cw_stats.base_stats.mod_damage += 0.1f;
+			cw_stats.base_stats.mod_armor += 0.01f;
+			cw_stats.base_stats.mod_attackSpeed += 0.01f;
+			cw_stats.mod_spell_armor += 0.01f;
+			cw_stats.mod_wakan += 0.1f;
+			cw_stats.mod_wakan_regen += 0.1f;
+			cw_stats.mod_shield_regen += 0.1f;
 			cw_stats.age_bonus++;
-			cw_stats.mod_shield += 1;
+			cw_stats.mod_shield += 0.1f;
 			actor.clear_default_spell_timer();
             if (CW_Actor.get_attackTarget(actor) == null)
             {
@@ -72,9 +81,40 @@ namespace Addon_Killer
 					break;
                 }
             }
+			add_or_enpower_kill_combo((CW_Actor)actor);
 			actor.setStatsDirty();
 			actor.check_level_up();
         }
+		private static void copy_bonus_stats_on_get(CW_StatusEffectData status_effect, BaseSimObject _obejct)
+        {
+            status_effect.bonus_stats = status_effect.bonus_stats.deepcopy();
+        }
+		
+		private static void kill_combo_update_action(CW_StatusEffectData status_effect, BaseSimObject _object)
+        {
+            if (_object.objectType != MapObjectType.Actor) return;
+            for(int i=0;i<10;i++)((CW_Actor)_object).spawnParticle(Color.red);
+        }
+		
+		private static void add_or_enpower_kill_combo(CW_Actor actor)
+		{
+			CW_StatusEffectData combo_status_effect = actor.add_status_effect("status_kill_combo", "status_kill_combo");
+			combo_status_effect.next_update_action_time = 0;
+			
+			combo_status_effect.bonus_stats.base_stats.damage += (int)UnityEngine.Mathf.Sqrt(actor.fast_data.kills);
+			CW_BaseStats cw_stats = combo_status_effect.bonus_stats;
+			cw_stats.base_stats.mod_health += 2f;
+			cw_stats.base_stats.mod_damage += 2f;
+			cw_stats.base_stats.mod_armor += 0.5f;
+			cw_stats.base_stats.mod_attackSpeed += 0.5f;
+			cw_stats.mod_spell_armor += 0.5f;
+			cw_stats.mod_wakan += 2f;
+			cw_stats.mod_wakan_regen += 2f;
+			cw_stats.mod_shield_regen += 2f;
+			cw_stats.mod_shield += 2f;
+			
+			combo_status_effect.left_time = combo_status_effect.left_time>combo_status_effect.status_asset.effect_val?combo_status_effect.left_time:combo_status_effect.status_asset.effect_val;
+		}
 		private void add_killer_cultisys(){
 			killer = CW_Library_Manager.instance.cultisys.add(
 				new CW_Asset_CultiSys()
